@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Funcionário - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <a href="{{ url_for('list_employees') }}" class="btn btn-outline mb-3">← Voltar</a>
+    
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    
+    <div class="card" style="max-width: 600px;">
+        <div class="card-header">
+            <h3 class="card-title">Editar Funcionário</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{% if is_create %}{{ url_for('new_employee') }}{% else %}{{ url_for('edit_employee', employee_id=employee._id) }}{% endif %}">
+                    <label for="name">Nome:</label>
+                    <input type="text" id="name" name="name" value="{{ employee.name }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">E-mail:</label>
+                    <input type="email" id="email" name="email" value="{{ employee.email }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Função:</label>
+                    <select id="role" name="role" required>
+                        <option value="operator" {% if employee.role == 'operator' %}selected{% endif %}>Operador</option>
+                        <option value="admin" {% if employee.role == 'admin' %}selected{% endif %}>Administrador</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Salvar Alterações</button>
+            
+        <div class="form-group">
+            <label for="password">Senha (opcional)</label>
+            <input type="password" id="password" name="password" placeholder="Defina uma senha (opcional)">
+        </div>
+        
+</form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

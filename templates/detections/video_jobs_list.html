@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Vídeos Processados - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>📋 Vídeos Processados</h1>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{{ url_for('detect_video') }}" class="btn btn-primary">
+            📹 Processar Novo Vídeo
+        </a>
+        <span class="text-muted">{{ jobs|length }} vídeo(s) processado(s)</span>
+    </div>
+
+    {% if not jobs %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <h3>📹 Nenhum vídeo processado</h3>
+            <p class="text-muted">Comece processando seu primeiro vídeo para ver os resultados aqui.</p>
+            <a href="{{ url_for('detect_video') }}" class="btn btn-primary">
+                Processar Primeiro Vídeo
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Vídeo</th>
+                            <th>Status</th>
+                            <th>Detecções</th>
+                            <th>Data</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td>
+                                <strong>{{ job.original_filename }}</strong>
+                                <br>
+                                <small class="text-muted">ID: {{ job.job_id[:8] }}...</small>
+                            </td>
+                            <td>
+                                {% if job.status == 'pending' %}
+                                    <span class="badge badge-warning">⏳ Pendente</span>
+                                {% elif job.status == 'processing' %}
+                                    <span class="badge badge-info">⚙️ Processando</span>
+                                {% elif job.status == 'completed' %}
+                                    <span class="badge badge-success">✓ Concluído</span>
+                                {% elif job.status == 'failed' %}
+                                    <span class="badge badge-danger">✗ Falha</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ job.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if job.status == 'completed' %}
+                                    <span class="text-success">{{ job.results|length }} detecções</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ job.created_at[:16] }}</small>
+                                {% if job.completed_at %}
+                                    <br>
+                                    <small class="text-muted">Concluído: {{ job.completed_at[:16] }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('video_status', job_id=job.job_id) }}" 
+                                       class="btn btn-outline-primary">
+                                        🔍 Detalhes
+                                    </a>
+                                    {% if job.status == 'completed' and job.annotated_video_path %}
+                                    <a href="{{ url_for('get_annotated_video', job_id=job.job_id) }}" 
+                                       class="btn btn-outline-success" target="_blank">
+                                        📹 Vídeo
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">📊 Estatísticas</h3>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <h3>{{ jobs|length }}</h3>
+                        <p class="text-muted">Total de Vídeos</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <h3 class="text-success">{{ jobs|selectattr('status', 'equalto', 'completed')|list|length }}</h3>
+                        <p class="text-muted">Concluídos</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <h3 class="text-warning">{{ jobs|selectattr('status', 'equalto', 'processing')|list|length }}</h3>
+                        <p class="text-muted">Processando</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <h3 class="text-danger">{{ jobs|selectattr('status', 'equalto', 'failed')|list|length }}</h3>
+                        <p class="text-muted">Com Erro</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+
+.stat-card h3 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.stat-card p {
+    margin: 0.5rem 0 0 0;
+}
+</style>
+{% endblock %}

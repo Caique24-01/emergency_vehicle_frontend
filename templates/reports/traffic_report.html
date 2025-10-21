@@ -1,0 +1,142 @@
+<!-- templates/reports/traffic_report.html -->
+{% extends "base.html" %}
+
+{% block title %}Relatório de Tráfego - Sistema de Detecção{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Relatório de Tráfego</h1>
+    <p class="lead">Volume de detecções por período horário</p>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filtrar por Período</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label for="start_date">Data Inicial:</label>
+                            <input type="date" id="start_date" name="start_date" class="form-control" 
+                                   value="{{ filters.start_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label for="end_date">Data Final:</label>
+                            <input type="date" id="end_date" name="end_date" class="form-control"
+                                   value="{{ filters.end_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">Gerar Relatório</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+    
+    {% if report_data %}
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Resultados do Relatório</h4>
+                        <p class="text-muted mb-0">
+                            Período: {{ report_data.period.start }} até {{ report_data.period.end }}
+                        </p>
+                    </div>
+                    <div class="card-body">
+                        {% if report_data.data %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Data/Hora</th>
+                                            <th>Total de Detecções</th>
+                                            <th>Detecções com Sirene</th>
+                                            <th>Taxa de Sirene</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in report_data.data %}
+                                        <tr>
+                                            <td>{{ item.datetime }}</td>
+                                            <td>{{ item.total_detections }}</td>
+                                            <td>{{ item.detections_with_siren }}</td>
+                                            <td>
+                                                {% if item.total_detections > 0 %}
+                                                    {{ "%.1f"|format((item.detections_with_siren / item.total_detections) * 100) }}%
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Estatísticas Resumidas -->
+                            <div class="row mt-4">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3>{{ report_data.data|sum(attribute='total_detections') }}</h3>
+                                            <p class="text-muted">Total no Período</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3>{{ report_data.data|sum(attribute='detections_with_siren') }}</h3>
+                                            <p class="text-muted">Sirenes Ativas</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3>{{ report_data.data|length }}</h3>
+                                            <p class="text-muted">Períodos Analisados</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3>
+                                                {% set total_detections = report_data.data|sum(attribute='total_detections') %}
+                                                {% set total_sirenes = report_data.data|sum(attribute='detections_with_siren') %}
+                                                {% if total_detections > 0 %}
+                                                    {{ "%.1f"|format((total_sirenes / total_detections) * 100) }}%
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
+                                            </h3>
+                                            <p class="text-muted">Taxa Média Sirene</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                Nenhum dado encontrado para o período selecionado.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

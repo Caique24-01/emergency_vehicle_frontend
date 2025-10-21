@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Resultados da Detecção - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Resultados da Detecção</h1>
+    
+    <a href="{{ url_for('detect_image') }}" class="btn btn-outline mb-3">← Nova Detecção</a>
+    
+    {% if detections %}
+        <div class="alert alert-success">
+            {{ detections|length }} veículo(s) detectado(s)
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Imagem com Detecções</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        {% if detections[0]._id %}
+                            <img src="{{ url_for('get_annotated_image', detection_id=detections[0]._id) }}" 
+                                 alt="Imagem anotada com detecções" 
+                                 style="max-width: 100%; max-height: 500px; border: 1px solid #ddd; border-radius: 4px;">
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    Bounding boxes mostram os veículos detectados
+                                </small>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                Imagem anotada não disponível
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Detalhes das Detecções</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo de Veículo</th>
+                                        <th>Confiança</th>
+                                        <th>Status</th>
+                                        <th>Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detection in detections %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge badge-primary">
+                                                    {% if detection.vehicle_type == 'ambulance' %}
+                                                        🚑 Ambulância
+                                                    {% elif detection.vehicle_type == 'police_car' %}
+                                                        🚔 Viatura Policial
+                                                    {% elif detection.vehicle_type == 'fire_truck' %}
+                                                        🚒 Carro de Bombeiros
+                                                    {% elif detection.vehicle_type == 'traffic_enforcement' %}
+                                                        🚨 Fiscalização de Trânsito
+                                                    {% else %}
+                                                        {{ detection.vehicle_type }}
+                                                    {% endif %}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% set confidence_score = detection.confidence_score | float %}
+                                                {% set confidence_percent = (confidence_score * 100) | round(1) %}
+                                                <div class="progress" style="height: 20px; width: 100px;">
+                                                    <div class="progress-bar 
+                                                        {% if confidence_percent >= 80 %}bg-success
+                                                        {% elif confidence_percent >= 60 %}bg-warning
+                                                        {% else %}bg-danger{% endif %}" 
+                                                        role="progressbar" 
+                                                        style="width: {{ confidence_percent }}%"
+                                                        aria-valuenow="{{ confidence_percent }}" 
+                                                        aria-valuemin="0" 
+                                                        aria-valuemax="100">
+                                                        {{ "%.1f"|format(confidence_percent) }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if detection.siren_on %}
+                                                    <span class="badge badge-danger">Sirene Ativa</span>
+                                                {% else %}
+                                                    <span class="badge badge-secondary">Inativo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <small>{{ detection.timestamp }}</small>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Estatísticas resumidas -->
+                        <div class="mt-4">
+                            <h6>Resumo da Detecção:</h6>
+                            <ul class="list-unstyled">
+                                <li>• Total de veículos: <strong>{{ detections|length }}</strong></li>
+                                <li>• Confiança média: <strong>
+                                    {% set total_confidence = 0 %}
+                                    {% for detection in detections %}
+                                        {% set total_confidence = total_confidence + (detection.confidence_score | float) %}
+                                    {% endfor %}
+                                    {% if detections|length > 0 %}
+                                        {{ "%.1f"|format((total_confidence / detections|length) * 100) }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </strong></li>
+                                <li>• Veículos com sirene ativa: <strong>{{ detections|selectattr('siren_on')|list|length }}</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title">Informações Técnicas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for detection in detections %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Detecção #{{ loop.index }}</h6>
+                                <ul class="list-unstyled small">
+                                    <li><strong>ID:</strong> {{ detection._id }}</li>
+                                    <li><strong>Tipo:</strong> {{ detection.vehicle_type }}</li>
+                                    <li><strong>Confiança:</strong> {{ "%.4f"|format(detection.confidence_score | float) }}</li>
+                                    <li><strong>BBox:</strong> 
+                                        {% if detection.bounding_box %}
+                                            {% if detection.bounding_box is mapping %}
+                                                {# Formato de dicionário #}
+                                                [{{ "%.2f"|format(detection.bounding_box.get('x1', 0) | float) }}, 
+                                                 {{ "%.2f"|format(detection.bounding_box.get('y1', 0) | float) }}, 
+                                                 {{ "%.2f"|format(detection.bounding_box.get('x2', 0) | float) }}, 
+                                                 {{ "%.2f"|format(detection.bounding_box.get('y2', 0) | float) }}]
+                                            {% else %}
+                                                {# Formato de lista ou tupla #}
+                                                {{ detection.bounding_box }}
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </li>
+                                    <li><strong>Processado em:</strong> {{ detection.processed_at }}</li>
+                                    <li><strong>Fonte:</strong> {{ detection.source_id }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+    {% else %}
+        <div class="alert alert-info">
+            Nenhum veículo de emergência foi detectado na imagem.
+            <div class="mt-2">
+                <a href="{{ url_for('detect_image') }}" class="btn btn-primary">Tentar com outra imagem</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.progress {
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-bar {
+    transition: width 0.6s ease;
+    font-size: 0.75rem;
+    line-height: 20px;
+}
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+</style>
+{% endblock %}

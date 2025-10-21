@@ -1,0 +1,118 @@
+{% extends "base.html" %} {% block title %}Detectar em Vídeo - Sistema de
+Detecção de Veículos de Emergência{% endblock %} {% block content %}
+<div class="container">
+  <h1>Detectar Veículos em Vídeo</h1>
+
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📹 Upload de Vídeo</h3>
+        </div>
+        <div class="card-body">
+          <form method="POST" enctype="multipart/form-data" id="uploadForm">
+            <div class="form-group">
+              <label for="file"><strong>Selecione um vídeo:</strong></label>
+              <input
+                type="file"
+                id="file"
+                name="file"
+                accept="video/*"
+                class="form-control-file"
+                required
+              />
+              <small class="form-text text-muted">
+                Formatos aceitos: MP4, AVI, MOV, MKV (máximo 100MB)
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="source_id"
+                ><strong>ID da Fonte (opcional):</strong></label
+              >
+              <input
+                type="text"
+                id="source_id"
+                name="source_id"
+                class="form-control"
+                placeholder="camera_01"
+                value="uploaded_video"
+              />
+              <small class="form-text text-muted">
+                Identificador único para a fonte do vídeo
+              </small>
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary btn-lg btn-block"
+              id="submitBtn"
+            >
+              🚀 Processar Vídeo
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">ℹ️ Informações</h3>
+        </div>
+        <div class="card-body">
+          <h5>🎯 O que será detectado:</h5>
+          <ul>
+            <li>🚑 Ambulâncias</li>
+            <li>🚓 Viaturas Policiais</li>
+            <li>🚒 Caminhões de Bombeiros</li>
+          </ul>
+
+          <h5>📊 Funcionalidades:</h5>
+          <ul>
+            <li>Detecção em tempo real</li>
+            <li>Identificação de sirenes ativas</li>
+            <li>Vídeo anotado com bounding boxes</li>
+            <li>Relatório detalhado das detecções</li>
+          </ul>
+
+          <div class="alert alert-warning">
+            <strong>⏱️ Tempo de Processamento:</strong><br />
+            O processamento pode levar alguns minutos dependendo do tamanho do
+            vídeo.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card mt-4">
+    <div class="card-header">
+      <h3 class="card-title">📋 Vídeos Processados</h3>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">
+        Acompanhe todos os seus vídeos processados em uma única página.
+      </p>
+      <a href="{{ url_for('video_jobs_list') }}" class="btn btn-outline">
+        📋 Ver Todos os Vídeos Processados
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline">
+        📊 Ver Relatórios Completos
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById("uploadForm").addEventListener("submit", function () {
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = "⏳ Processando...";
+  });
+</script>
+{% endblock %}

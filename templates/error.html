@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Erro - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="max-width: 600px; margin: 2rem auto; text-align: center;">
+        <div class="card-header">
+            <h3 class="card-title">⚠️ Erro</h3>
+        </div>
+        <div class="card-body">
+            <p>{{ error }}</p>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Voltar ao Dashboard</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhes do Funcionário - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <a href="{{ url_for('list_employees') }}" class="btn btn-outline mb-3">← Voltar</a>
+    
+    <div class="card" style="max-width: 600px;">
+        <div class="card-header">
+            <h3 class="card-title">{{ employee.name }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label>Nome:</label>
+                <p>{{ employee.name }}</p>
+            </div>
+            
+            <div class="form-group">
+                <label>E-mail:</label>
+                <p>{{ employee.email }}</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Função:</label>
+                <p>
+                    {% if employee.role == 'admin' %}
+                        <span class="badge badge-danger">Administrador</span>
+                    {% else %}
+                        <span class="badge badge-primary">Operador</span>
+                    {% endif %}
+                </p>
+            </div>
+            
+            <div class="form-group">
+                <label>Data de Criação:</label>
+                <p>{{ employee.created_at }}</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Última Atualização:</label>
+                <p>{{ employee.updated_at }}</p>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('edit_employee', employee_id=employee._id) }}" class="btn btn-warning">Editar</a>
+                <form method="POST" action="{{ url_for('delete_employee', employee_id=employee._id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Tem certeza que deseja deletar este funcionário?')">Deletar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Funcionários - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Funcionários</h1>
+        <a href="{{ url_for('new_employee') }}" class="btn btn-primary">+ Novo Funcionário</a>
+    </div>
+    
+    {% if employees %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Função</th>
+                        <th>Data de Criação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in employees %}
+                        <tr>
+                            <td>{{ employee.name }}</td>
+                            <td>{{ employee.email }}</td>
+                            <td>
+                                {% if employee.role == 'admin' %}
+                                    <span class="badge badge-danger">Administrador</span>
+                                {% else %}
+                                    <span class="badge badge-primary">Operador</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ employee.created_at }}</td>
+                            <td>
+                                <a href="{{ url_for('employee_detail', employee_id=employee._id) }}" class="btn btn-sm btn-info">Ver</a>
+                                <a href="{{ url_for('edit_employee', employee_id=employee._id) }}" class="btn btn-sm btn-warning">Editar</a>
+                                <form method="POST" action="{{ url_for('delete_employee', employee_id=employee._id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja deletar este funcionário?')">Deletar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            Nenhum funcionário cadastrado.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+

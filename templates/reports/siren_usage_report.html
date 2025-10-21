@@ -1,0 +1,52 @@
+<!-- templates/reports/siren_usage_report.html -->
+{% extends "base.html" %}
+
+{% block title %}Uso de Sirene - Sistema de Detecção{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Relatório de Uso de Sirene</h1>
+    <p class="lead">Análise do uso de sirenes por tipo de veículo</p>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filtrar por Período</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label for="start_date">Data Inicial:</label>
+                            <input type="date" id="start_date" name="start_date" class="form-control" 
+                                   value="{{ filters.start_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label for="end_date">Data Final:</label>
+                            <input type="date" id="end_date" name="end_date" class="form-control"
+                                   value="{{ filters.end_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">Gerar Relatório</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if report_data %}
+        <div class="alert alert-info mt-4">
+            <h4>🚨 Relatório de Uso de Sirene</h4>
+            <p>Este relatório está em desenvolvimento. Dados mock utilizados para demonstração.</p>
+            <p><strong>Total de detecções:</strong> {{ report_data.total_detections }}</p>
+            <p><strong>Sirenes ativas:</strong> {{ report_data.siren_on }} ({{ report_data.siren_usage_rate }}%)</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

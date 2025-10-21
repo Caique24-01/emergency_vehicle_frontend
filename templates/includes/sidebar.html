@@ -1,0 +1,75 @@
+<aside class="sidebar">
+  <nav>
+    <ul class="sidebar-nav">
+      <li>
+        <a
+          href="{{ url_for('dashboard') }}"
+          class="{% if request.endpoint == 'dashboard' %}active{% endif %}"
+        >
+          📊 Dashboard
+        </a>
+      </li>
+      <li>
+        <a
+          href="{{ url_for('detect_image') }}"
+          class="{% if request.endpoint == 'detect_image' %}active{% endif %}"
+        >
+          🖼️ Detectar Imagem
+        </a>
+      </li>
+      <li>
+        <a
+          href="{{ url_for('detect_video') }}"
+          class="{% if request.endpoint == 'detect_video' %}active{% endif %}"
+        >
+          🎥 Detectar Vídeo
+        </a>
+      </li>
+      <!-- <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('reports_dashboard') }}">
+          📊 Relatórios
+        </a>
+      </li> -->
+      <li>
+        <a
+          href="{{ url_for('traffic_report') }}"
+          class="{% if request.endpoint == 'traffic_report' %}active{% endif %}"
+        >
+          📈 Relatório de Tráfego
+        </a>
+      </li>
+      <li>
+        <a
+          href="{{ url_for('detections_report') }}"
+          class="{% if request.endpoint == 'detections_report' %}active{% endif %}"
+        >
+          📋 Relatório de Detecções
+        </a>
+      </li>
+      <li>
+        <a
+          href="{{ url_for('vehicle_activity_report') }}"
+          class="{% if request.endpoint == 'vehicle_activity_report' %}active{% endif %}"
+        >
+          🚗 Atividade por Veículo
+        </a>
+      </li>
+      <li>
+        <a
+          href="{{ url_for('confidence_report') }}"
+          class="{% if request.endpoint == 'confidence_report' %}active{% endif %}"
+        >
+          🎯 Confiança
+        </a>
+      </li>
+      <li>
+        <a
+          href="{{ url_for('list_employees') }}"
+          class="{% if request.endpoint == 'list_employees' %}active{% endif %}"
+        >
+          👥 Funcionários
+        </a>
+      </li>
+    </ul>
+  </nav>
+</aside>

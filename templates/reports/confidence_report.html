@@ -1,0 +1,426 @@
+<!-- templates/reports/confidence_report.html -->
+{% extends "base.html" %}
+
+{% block title %}Confiança das Detecções - Sistema de Detecção{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Relatório de Confiança das Detecções</h1>
+    <p class="lead">Análise da qualidade e confiabilidade das detecções</p>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filtrar Relatório</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="start_date">Data Inicial:</label>
+                            <input type="date" id="start_date" name="start_date" class="form-control"
+                                   value="{{ filters.start_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="end_date">Data Final:</label>
+                            <input type="date" id="end_date" name="end_date" class="form-control"
+                                   value="{{ filters.end_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="vehicle_type">Tipo de Veículo:</label>
+                            <select id="vehicle_type" name="vehicle_type" class="form-control">
+                                <option value="all">Todos os Veículos</option>
+                                {% for vtype in vehicle_types %}
+                                    <option value="{{ vtype }}" {% if filters and filters.vehicle_type == vtype %}selected{% endif %}>
+                                        {% if vtype == 'ambulance' %}
+                                            🚑 Ambulância
+                                        {% elif vtype == 'police_car' %}
+                                            🚔 Viatura Policial
+                                        {% elif vtype == 'fire_truck' %}
+                                            🚒 Carro de Bombeiros
+                                        {% elif vtype == 'traffic_enforcement' %}
+                                            🚨 Fiscalização de Trânsito
+                                        {% else %}
+                                            {{ vtype }}
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Gerar Relatório</button>
+            </form>
+        </div>
+    </div>
+    
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+    
+    {% if report_data and report_data.summary.total_detections > 0 %}
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3>{{ "%.1f"|format(report_data.summary.average_confidence * 100) }}%</h3>
+                        <p class="text-muted">Confiança Média</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3>{{ "%.1f"|format(report_data.summary.min_confidence * 100) }}%</h3>
+                        <p class="text-muted">Mínima</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3>{{ "%.1f"|format(report_data.summary.max_confidence * 100) }}%</h3>
+                        <p class="text-muted">Máxima</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3>{{ "%.3f"|format(report_data.summary.std_dev_confidence) }}</h3>
+                        <p class="text-muted">Desvio Padrão</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Distribuição de Confiança</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="confidenceDistributionChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Métricas de Qualidade</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="qualityMetricsChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% if report_data.confidence_by_vehicle and report_data.confidence_by_vehicle|length > 0 %}
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Confiança por Tipo de Veículo</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="vehicleConfidenceChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Detalhes por Tipo de Veículo</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo de Veículo</th>
+                                        <th>Detecções</th>
+                                        <th>Confiança Média</th>
+                                        <th>Mínima</th>
+                                        <th>Máxima</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for vtype, stats in report_data.confidence_by_vehicle.items() %}
+                                    <tr>
+                                        <td>
+                                            {% if vtype == 'ambulance' %}
+                                                🚑 Ambulância
+                                            {% elif vtype == 'police_car' %}
+                                                🚔 Viatura Policial
+                                            {% elif vtype == 'fire_truck' %}
+                                                🚒 Carro de Bombeiros
+                                            {% else %}
+                                                {{ vtype }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ stats.count }}</td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if stats.average_confidence >= 0.7 %}bg-success
+                                                {% elif stats.average_confidence >= 0.5 %}bg-warning
+                                                {% else %}bg-danger{% endif %}">
+                                                {{ "%.1f"|format(stats.average_confidence * 100) }}%
+                                            </span>
+                                        </td>
+                                        <td>{{ "%.1f"|format(stats.min_confidence * 100) }}%</td>
+                                        <td>{{ "%.1f"|format(stats.max_confidence * 100) }}%</td>
+                                        <td>
+                                            {% if stats.average_confidence >= 0.7 %}
+                                                <span class="text-success">✅ Excelente</span>
+                                            {% elif stats.average_confidence >= 0.5 %}
+                                                <span class="text-warning">⚠️ Aceitável</span>
+                                            {% else %}
+                                                <span class="text-danger">❌ Precisa Melhorar</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    {% elif report_data %}
+        <div class="alert alert-info mt-4">
+            <h4>📊 Nenhum Dado Encontrado</h4>
+            <p>Não foram encontradas detecções para o período e filtros selecionados.</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if report_data and report_data.summary.total_detections > 0 %}
+    
+    const reportData = {{ report_data | tojson }};
+    
+    const distributionCtx = document.getElementById('confidenceDistributionChart').getContext('2d');
+    const distributionChart = new Chart(distributionCtx, {
+        type: 'pie',
+        data: {
+            labels: [
+                '🎯 Muito Alta (90-100%)', 
+                '✅ Alta (70-89%)', 
+                '⚠️ Média (50-69%)', 
+                '🔍 Baixa (30-49%)', 
+                '❌ Muito Baixa (0-29%)'
+            ],
+            datasets: [{
+                data: [
+                    reportData.confidence_distribution.very_high,
+                    reportData.confidence_distribution.high,
+                    reportData.confidence_distribution.medium,
+                    reportData.confidence_distribution.low,
+                    reportData.confidence_distribution.very_low
+                ],
+                backgroundColor: [
+                    '#28a745', // Verde - Muito Alta
+                    '#007bff', // Azul - Alta
+                    '#ffc107', // Amarelo - Média
+                    '#fd7e14', // Laranja - Baixa
+                    '#dc3545'  // Vermelho - Muito Baixa
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 15
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const qualityCtx = document.getElementById('qualityMetricsChart').getContext('2d');
+    const qualityChart = new Chart(qualityCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Alta Qualidade (≥70%)', 'Confiáveis (≥50%)', 'Precisam Revisão (<30%)'],
+            datasets: [{
+                label: 'Percentual (%)',
+                data: [
+                    reportData.quality_metrics.high_quality_rate,
+                    reportData.quality_metrics.reliable_rate,
+                    reportData.quality_metrics.needs_review_rate
+                ],
+                backgroundColor: [
+                    '#28a745', // Verde - Alta Qualidade
+                    '#ffc107', // Amarelo - Confiáveis
+                    '#dc3545'  // Vermelho - Revisão
+                ],
+                borderColor: [
+                    '#218838',
+                    '#e0a800',
+                    '#c82333'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Percentual (%)'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    {% if report_data.confidence_by_vehicle and report_data.confidence_by_vehicle|length > 0 %}
+    const vehicleCtx = document.getElementById('vehicleConfidenceChart').getContext('2d');
+    
+    const vehicleTypes = [];
+    const averageConfidences = [];
+    const minConfidences = [];
+    const maxConfidences = [];
+    const backgroundColors = [];
+
+    {% for vtype, stats in report_data.confidence_by_vehicle.items() %}
+        vehicleTypes.push(
+            {% if vtype == 'ambulance' %}'🚑 Ambulância'
+            {% elif vtype == 'police_car' %}'🚔 Viatura'
+            {% elif vtype == 'fire_truck' %}'🚒 Bombeiros'
+            {% else %}'{{ vtype }}'{% endif %}
+        );
+        averageConfidences.push({{ stats.average_confidence * 100 }});
+        minConfidences.push({{ stats.min_confidence * 100 }});
+        maxConfidences.push({{ stats.max_confidence * 100 }});
+        
+        {% if stats.average_confidence >= 0.7 %}
+            backgroundColors.push('#28a745');
+        {% elif stats.average_confidence >= 0.5 %}
+            backgroundColors.push('#ffc107');
+        {% else %}
+            backgroundColors.push('#dc3545');
+        {% endif %}
+    {% endfor %}
+
+    const vehicleConfidenceChart = new Chart(vehicleCtx, {
+        type: 'bar',
+        data: {
+            labels: vehicleTypes,
+            datasets: [
+                {
+                    label: 'Confiança Média',
+                    data: averageConfidences,
+                    backgroundColor: backgroundColors,
+                    borderColor: backgroundColors.map(color => color.replace('0.2', '1')),
+                    borderWidth: 1,
+                    type: 'bar'
+                },
+                {
+                    label: 'Mínima',
+                    data: minConfidences,
+                    backgroundColor: 'rgba(108, 117, 125, 0.6)',
+                    borderColor: '#6c757d',
+                    borderWidth: 1,
+                    type: 'line',
+                    fill: false,
+                    pointStyle: 'circle',
+                    pointRadius: 5
+                },
+                {
+                    label: 'Máxima',
+                    data: maxConfidences,
+                    backgroundColor: 'rgba(40, 167, 69, 0.6)',
+                    borderColor: '#28a745',
+                    borderWidth: 1,
+                    type: 'line',
+                    fill: false,
+                    pointStyle: 'triangle',
+                    pointRadius: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Confiança (%)'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    {% endif %}
+});
+</script>
+
+<style>
+.border-orange {
+    border-color: #ff9800 !important;
+}
+
+.card {
+    margin-bottom: 1rem;
+}
+
+canvas {
+    max-height: 300px;
+}
+</style>
+{% endblock %}

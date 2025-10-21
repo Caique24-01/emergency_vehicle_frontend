@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+
+{% block title %}Status do Processamento - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Status do Processamento de Vídeo</h1>
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{{ url_for('detect_video') }}" class="btn btn-outline">← Voltar para Upload</a>
+        <a href="{{ url_for('video_jobs_list') }}" class="btn btn-outline">📋 Ver Todos os Vídeos</a>
+    </div>
+    
+    <!-- Card de Status Principal -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{{ job.original_filename }}</h3>
+            <small class="text-muted">ID: {{ job.job_id }}</small>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label><strong>Status:</strong></label>
+                        <p id="statusDisplay">
+                            {% if job.status == 'pending' %}
+                                <span class="badge badge-warning">⏳ Pendente</span>
+                            {% elif job.status == 'processing' %}
+                                <span class="badge badge-info">⚙️ Processando</span>
+                            {% elif job.status == 'completed' %}
+                                <span class="badge badge-success">✓ Concluído</span>
+                            {% elif job.status == 'failed' %}
+                                <span class="badge badge-danger">✗ Falha</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ job.status }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><strong>Data de Criação:</strong></label>
+                        <p>{{ job.created_at }}</p>
+                    </div>
+                    
+                    {% if job.completed_at %}
+                        <div class="form-group">
+                            <label><strong>Data de Conclusão:</strong></label>
+                            <p>{{ job.completed_at }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label><strong>Detecções Encontradas:</strong></label>
+                        <p id="detectionsCount">{{ job.results|length }}</p>
+                    </div>
+                    
+                    {% if job.status == 'completed' and job.annotated_video_path %}
+                        <div class="form-group">
+                            <label><strong>Vídeo Anotado:</strong></label>
+                            <div class="mt-2">
+                                <button id="viewVideoBtn" class="btn btn-success" onclick="loadVideo()">
+                                    📹 Carregar Vídeo com Detecções
+                                </button>
+                                <a href="{{ url_for('get_annotated_video', job_id=job.job_id) }}" 
+                                   class="btn btn-outline" download="video_anotado_{{ job.job_id }}.mp4">
+                                    💾 Download
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if job.error_message %}
+                        <div class="form-group">
+                            <label><strong>Mensagem de Erro:</strong></label>
+                            <p class="text-danger">{{ job.error_message }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Área de Status Dinâmico -->
+            <div id="statusArea">
+                {% if job.status != 'completed' and job.status != 'failed' %}
+                    <div class="alert alert-info">
+                        <h5>⏱️ Processamento em Andamento</h5>
+                        <p>O processamento do vídeo está sendo realizado em background.</p>
+                        <div class="progress mb-2">
+                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 style="width: 0%"></div>
+                        </div>
+                        <p id="progressText">Iniciando processamento...</p>
+                        <button class="btn btn-primary" onclick="checkStatus(true)">
+                            🔄 Atualizar Status
+                        </button>
+                        <button class="btn btn-outline" onclick="waitForCompletion()">
+                            ⏳ Aguardar Conclusão
+                        </button>
+                    </div>
+                {% elif job.status == 'completed' and job.results %}
+                    <div class="alert alert-success">
+                        <h5>✅ Processamento Concluído</h5>
+                        <p>Processamento concluído com sucesso! <span id="finalDetectionsCount">{{ job.results|length }}</span> detecção(ões) encontrada(s).</p>
+                    </div>
+                {% elif job.status == 'failed' %}
+                    <div class="alert alert-danger">
+                        <h5>❌ Erro no Processamento</h5>
+                        <p>Ocorreu um erro ao processar o vídeo. Por favor, tente novamente.</p>
+                        {% if job.error_message %}
+                            <p><strong>Detalhes:</strong> {{ job.error_message }}</p>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <h5>ℹ️ Nenhuma Detecção</h5>
+                        <p>Nenhum veículo de emergência foi detectado no vídeo.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Vídeo (aparece apenas quando processamento completo) -->
+    {% if job.status == 'completed' and job.annotated_video_path %}
+    <div id="videoSection" class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">🎥 Vídeo Anotado</h3>
+        </div>
+        <div class="card-body">
+            <div class="text-center">
+                <video id="annotatedVideo" controls width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: none;">
+                    <source src="" type="video/mp4">
+                    Seu navegador não suporta a tag de vídeo.
+                </video>
+                <div id="videoLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Carregando vídeo...</span>
+                    </div>
+                    <p class="mt-2">Carregando vídeo anotado...</p>
+                </div>
+                <div id="videoError" class="alert alert-danger" style="display: none;">
+                    ❌ Erro ao carregar o vídeo. Tente fazer o download.
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h5>🎯 Legenda das Anotações:</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-2">
+                            <div style="width: 20px; height: 20px; background-color: #00ff00; border: 2px solid #000; margin-right: 10px;"></div>
+                            <span><strong>Verde:</strong> Veículo com sirene ativa (EM OPERAÇÃO)</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-2">
+                            <div style="width: 20px; height: 20px; background-color: #ff0000; border: 2px solid #000; margin-right: 10px;"></div>
+                            <span><strong>Vermelho:</strong> Veículo com sirene inativa (FORA DE OPERAÇÃO)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Seção de Detecções (aparece apenas quando processamento completo) -->
+    {% if detections and job.status == 'completed' %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">📊 Detecções Encontradas</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Tipo de Veículo</th>
+                            <th>Status da Sirene</th>
+                            <th>Confiança</th>
+                            <th>Posição</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detection in detections %}
+                        <tr>
+                            <td>
+                                {% if detection.vehicle_type == 'ambulance' %}
+                                    🚑 Ambulância
+                                {% elif detection.vehicle_type == 'police_car' %}
+                                    🚓 Viatura Policial
+                                {% elif detection.vehicle_type == 'fire_truck' %}
+                                    🚒 Caminhão de Bombeiros
+                                {% else %}
+                                    🚗 {{ detection.vehicle_type }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if detection.siren_on %}
+                                    <span class="badge badge-success">🚨 EM OPERAÇÃO</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">🔇 FORA DE OPERAÇÃO</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if detection.confidence_score > 0.7 %}bg-success{% elif detection.confidence_score > 0.4 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ (detection.confidence_score * 100)|round|int }}%">
+                                        {{ "%.1f"|format(detection.confidence_score * 100) }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                ({{ detection.bounding_box.x }}, {{ detection.bounding_box.y }})<br>
+                                {{ detection.bounding_box.w }}x{{ detection.bounding_box.h }}
+                            </td>
+                            <td>{{ detection.timestamp }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Seção de Imagens (aparece apenas quando processamento completo) -->
+    {% if detection_images and job.status == 'completed' %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">🖼️ Imagens das Detecções</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for image in detection_images %}
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <img src="{{ url_for('get_detection_image', detection_id=image.id) }}" 
+                             class="card-img-top" 
+                             alt="Detecção {{ image.vehicle_type }}"
+                             style="height: 200px; object-fit: cover;"
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7imYAgSW1hZ2VtIG7Do28gZGlzcG9uw612ZWw8L3RleHQ+PC9zdmc+'">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                {% if image.vehicle_type == 'ambulance' %}
+                                    🚑 Ambulância
+                                {% elif image.vehicle_type == 'police_car' %}
+                                    🚓 Viatura Policial
+                                {% elif image.vehicle_type == 'fire_truck' %}
+                                    🚒 Caminhão de Bombeiros
+                                {% else %}
+                                    🚗 {{ image.vehicle_type }}
+                                {% endif %}
+                            </h6>
+                            <p class="card-text">
+                                <small>
+                                    Confiança: <strong>{{ "%.1f"|format(image.confidence * 100) }}%</strong><br>
+                                    Sirene: 
+                                    {% if image.siren_on %}
+                                        <span class="text-success">🚨 Ativa</span>
+                                    {% else %}
+                                        <span class="text-muted">🔇 Inativa</span>
+                                    {% endif %}
+                                </small>
+                            </p>
+                            <a href="{{ url_for('get_detection_image', detection_id=image.id) }}" 
+                               class="btn btn-sm btn-outline" target="_blank">
+                                🔍 Ampliar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const jobId = '{{ job.job_id }}';
+let checkInterval;
+
+// Função para carregar o vídeo
+function loadVideo() {
+    const video = document.getElementById('annotatedVideo');
+    const videoLoading = document.getElementById('videoLoading');
+    const videoError = document.getElementById('videoError');
+    const viewVideoBtn = document.getElementById('viewVideoBtn');
+    
+    viewVideoBtn.disabled = true;
+    viewVideoBtn.innerHTML = '📹 Carregando...';
+    videoLoading.style.display = 'block';
+    videoError.style.display = 'none';
+    
+    // Configurar fonte do vídeo
+    const videoUrl = "{{ url_for('get_annotated_video', job_id=job.job_id) }}";
+    video.src = videoUrl;
+    
+    // Event listeners para o vídeo
+    video.onloadeddata = function() {
+        videoLoading.style.display = 'none';
+        video.style.display = 'block';
+        viewVideoBtn.innerHTML = '📹 Vídeo Carregado';
+        video.play().catch(e => console.log('Auto-play prevented:', e));
+    };
+    
+    video.onerror = function() {
+        videoLoading.style.display = 'none';
+        videoError.style.display = 'block';
+        viewVideoBtn.innerHTML = '📹 Tentar Novamente';
+        viewVideoBtn.disabled = false;
+        console.error('Erro ao carregar vídeo');
+    };
+    
+    video.load();
+}
+
+// Função para verificar status
+function checkStatus(showAlert = false) {
+    fetch(`/api/detections/video/${jobId}/status`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao buscar status');
+            }
+            return response.json();
+        })
+        .then(data => {
+            updateStatusDisplay(data);
+            if (showAlert) {
+                alert(`Status atual: ${data.status}`);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            if (showAlert) {
+                alert('Erro ao verificar status: ' + error.message);
+            }
+        });
+}
+
+// Função para aguardar conclusão
+function waitForCompletion() {
+    const statusArea = document.getElementById('statusArea');
+    statusArea.innerHTML = `
+        <div class="alert alert-warning">
+            <h5>⏳ Aguardando Conclusão...</h5>
+            <p>Por favor, aguarde enquanto o processamento é finalizado.</p>
+            <div class="progress mb-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+            </div>
+            <p>Esta página será atualizada automaticamente quando o processamento concluir.</p>
+        </div>
+    `;
+    
+    fetch(`/api/detections/video/${jobId}/wait-completion`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'completed') {
+                location.reload();
+            } else if (data.status === 'failed') {
+                alert('Erro no processamento: ' + data.error);
+                location.reload();
+            } else {
+                alert('Tempo de espera excedido. A página será atualizada.');
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao aguardar conclusão: ' + error.message);
+            location.reload();
+        });
+}
+
+// Função para atualizar a exibição do status
+function updateStatusDisplay(jobData) {
+    const statusDisplay = document.getElementById('statusDisplay');
+    const detectionsCount = document.getElementById('detectionsCount');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    // Atualizar status
+    let statusBadge = '';
+    switch(jobData.status) {
+        case 'pending':
+            statusBadge = '<span class="badge badge-warning">⏳ Pendente</span>';
+            progressBar.style.width = '25%';
+            progressText.textContent = 'Aguardando início do processamento...';
+            break;
+        case 'processing':
+            statusBadge = '<span class="badge badge-info">⚙️ Processando</span>';
+            progressBar.style.width = '50%';
+            progressText.textContent = 'Processando vídeo e detectando veículos...';
+            break;
+        case 'completed':
+            statusBadge = '<span class="badge badge-success">✓ Concluído</span>';
+            progressBar.style.width = '100%';
+            progressText.textContent = 'Processamento concluído com sucesso!';
+            // Recarregar a página para mostrar resultados completos
+            setTimeout(() => location.reload(), 2000);
+            break;
+        case 'failed':
+            statusBadge = '<span class="badge badge-danger">✗ Falha</span>';
+            progressText.textContent = 'Erro no processamento: ' + (jobData.error_message || 'Erro desconhecido');
+            break;
+    }
+    
+    statusDisplay.innerHTML = statusBadge;
+    detectionsCount.textContent = jobData.results ? jobData.results.length : 0;
+}
+
+// Auto-refresh se ainda estiver processando
+const currentStatus = '{{ job.status }}';
+if (currentStatus === 'pending' || currentStatus === 'processing') {
+    checkInterval = setInterval(() => checkStatus(), 5000);
+    
+    // Parar de verificar após 30 minutos (fallback)
+    setTimeout(() => {
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            console.log('Parada automática da verificação de status');
+        }
+    }, 30 * 60 * 1000);
+}
+
+// Carregar vídeo automaticamente se a página for carregada com processamento completo
+document.addEventListener('DOMContentLoaded', function() {
+    if ('{{ job.status }}' === 'completed' && '{{ job.annotated_video_path }}') {
+        setTimeout(loadVideo, 1000);
+    }
+});
+</script>
+{% endblock %}

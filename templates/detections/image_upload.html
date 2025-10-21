@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Detectar em Imagem - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Detectar Veículos em Imagem</h1>
+    
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    
+    <div class="card" style="max-width: 600px; margin: 2rem auto;">
+        <div class="card-header">
+            <h3 class="card-title">Upload de Imagem</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="form-group">
+                    <label for="file">Selecione uma imagem:</label>
+                    <input type="file" id="file" name="file" accept="image/*" required 
+                           onchange="previewImage(this)">
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">
+                        Formatos aceitos: JPEG, PNG, BMP, TIFF (máximo 100MB)
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="source_id">ID da Fonte (opcional):</label>
+                    <input type="text" id="source_id" name="source_id" placeholder="camera_01" value="uploaded_image">
+                </div>
+                
+                <div id="imagePreview" class="form-group" style="display: none;">
+                    <label>Preview:</label>
+                    <div style="max-width: 100%; max-height: 300px; overflow: hidden; border: 1px solid #ddd; border-radius: 4px;">
+                        <img id="preview" src="#" alt="Preview" style="max-width: 100%; max-height: 300px; display: block;">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                    Processar Imagem
+                </button>
+                
+                <div id="loading" style="display: none; text-align: center; margin-top: 1rem;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Processando...</span>
+                    </div>
+                    <p>Processando imagem, aguarde...</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewImage(input) {
+    const preview = document.getElementById('preview');
+    const imagePreview = document.getElementById('imagePreview');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            imagePreview.style.display = 'block';
+        }
+        
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        imagePreview.style.display = 'none';
+    }
+}
+
+document.getElementById('uploadForm').addEventListener('submit', function() {
+    document.getElementById('submitBtn').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+});
+</script>
+
+<style>
+.spinner-border {
+    width: 2rem;
+    height: 2rem;
+}
+</style>
+{% endblock %}

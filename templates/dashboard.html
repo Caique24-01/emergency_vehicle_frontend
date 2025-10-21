@@ -1,0 +1,71 @@
+<!-- templates/reports/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Relatórios - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Relatórios Analíticos</h1>
+    <p class="lead">Acompanhe as métricas e estatísticas do sistema de detecção</p>
+    
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">📊 Detecções</h5>
+                    <p class="card-text">Estatísticas gerais de detecções por tipo de veículo, uso de sirene e confiança.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('detections_report') }}" class="btn btn-primary btn-sm">Acessar Relatório</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">🚦 Tráfego</h5>
+                    <p class="card-text">Volume de detecções por período horário e análise de picos de atividade.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('traffic_report') }}" class="btn btn-primary btn-sm">Acessar Relatório</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">🚗 Atividade por Veículo</h5>
+                    <p class="card-text">Distribuição de detecções por tipo de veículo ao longo do tempo.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('vehicle_activity_report') }}" class="btn btn-primary btn-sm">Acessar Relatório</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card 4: Uso de Sirene
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">🚨 Uso de Sirene</h5>
+                    <p class="card-text">Análise do uso de sirenes por tipo de veículo e períodos do dia.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('siren_usage_report') }}" class="btn btn-primary btn-sm">Acessar Relatório</a>
+                </div>
+            </div>
+        </div> -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">🎯 Confiança</h5>
+                    <p class="card-text">Métricas de confiança do sistema de detecção por tipo de veículo.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('confidence_report') }}" class="btn btn-primary btn-sm">Acessar Relatório</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Detecção de Veículos de Emergência{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if is_authenticated %}
+        {% include 'includes/navbar.html' %}
+        <div class="container-fluid">
+            <div class="row">
+                {% include 'includes/sidebar.html' %}
+                <main class="main-content">
+                    {% if get_flashed_messages() %}
+                        {% for message in get_flashed_messages() %}
+                            <div class="alert alert-info">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    {% block content %}{% endblock %}
+                </main>
+            </div>
+        </div>
+        {% include 'includes/footer.html' %}
+    {% else %}
+        {% block unauthenticated_content %}{% endblock %}
+    {% endif %}
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</html>
+

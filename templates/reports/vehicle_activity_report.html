@@ -1,0 +1,121 @@
+<!-- templates/reports/vehicle_activity_report.html -->
+{% extends "base.html" %}
+
+{% block title %}Atividade por Veículo - Sistema de Detecção{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Atividade por Tipo de Veículo</h1>
+    <p class="lead">Distribuição de detecções por categoria de veículo</p>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filtrar Relatório</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="start_date">Data Inicial:</label>
+                            <input type="date" id="start_date" name="start_date" class="form-control"
+                                   value="{{ filters.start_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="end_date">Data Final:</label>
+                            <input type="date" id="end_date" name="end_date" class="form-control"
+                                   value="{{ filters.end_date if filters }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="group_by">Agrupar por:</label>
+                            <select id="group_by" name="group_by" class="form-control">
+                                <option value="hour" {% if filters and filters.group_by == 'hour' %}selected{% endif %}>Hora</option>
+                                <option value="day" {% if not filters or filters.group_by == 'day' %}selected{% endif %}>Dia</option>
+                                <option value="month" {% if filters and filters.group_by == 'month' %}selected{% endif %}>Mês</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Gerar Relatório</button>
+            </form>
+        </div>
+    </div>
+    
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+    
+    {% if report_data %}
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Resultados do Relatório</h4>
+                        <p class="text-muted mb-0">
+                            Agrupamento: {{ report_data.group_by }} | 
+                            Tipos de Veículos: {{ report_data.vehicle_types|join(', ') }} |
+                            Total de Detecções: {{ report_data.summary.total_detections }}
+                        </p>
+                    </div>
+                    <div class="card-body">
+                        {% if report_data.periods %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Período</th>
+                                            <th>Total</th>
+                                            {% for vtype in report_data.vehicle_types %}
+                                            <th>
+                                                {% if vtype == 'ambulance' %}
+                                                    🚑 Ambulância
+                                                {% elif vtype == 'police_car' %}
+                                                    🚔 Viatura
+                                                {% elif vtype == 'fire_truck' %}
+                                                    🚒 Bombeiros
+                                                {% else %}
+                                                    {{ vtype }}
+                                                {% endif %}
+                                            </th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for period_key, period_data in report_data.periods.items() %}
+                                        <tr>
+                                            <td><strong>{{ period_key }}</strong></td>
+                                            <td><strong>{{ period_data.total_detections }}</strong></td>
+                                            {% for vtype in report_data.vehicle_types %}
+                                            <td>
+                                                {{ period_data.by_vehicle_type.get(vtype, 0) }}
+                                                {% set sirene_count = period_data.siren_usage.get(vtype, 0) %}
+                                                {% set total_count = period_data.by_vehicle_type.get(vtype, 0) %}
+                                                {% if total_count > 0 %}
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        🚨 {{ sirene_count }} ({{ "%.0f"|format((sirene_count / total_count) * 100) }}%)
+                                                    </small>
+                                                {% endif %}
+                                            </td>
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                Nenhum dado encontrado para o período selecionado.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
