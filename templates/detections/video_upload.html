@@ -1,6 +1,11 @@
 {% extends "base.html" %} {% block title %}Detectar em Vídeo - Sistema de
 Detecção de Veículos de Emergência{% endblock %} {% block content %}
-<div class="container">
+	<div class="container">
+	  {% if request.args.get('message') %}
+	  <div class="alert alert-success">
+	    {{ request.args.get('message') | url_decode }}
+	  </div>
+	  {% endif %}
   <h1>Detectar Veículos em Vídeo</h1>
 
   {% if error %}
@@ -14,7 +19,7 @@ Detecção de Veículos de Emergência{% endblock %} {% block content %}
           <h3 class="card-title">📹 Upload de Vídeo</h3>
         </div>
         <div class="card-body">
-          <form method="POST" enctype="multipart/form-data" id="uploadForm">
+          <form method="POST" enctype="multipart/form-data" id="uploadForm" action="{{ url_for('detect_video') }}">
             <div class="form-group">
               <label for="file"><strong>Selecione um vídeo:</strong></label>
               <input
@@ -48,43 +53,13 @@ Detecção de Veículos de Emergência{% endblock %} {% block content %}
             </div>
 
             <button
-              type="submit"
+              type="submit" id="submitBtn"
               class="btn btn-primary btn-lg btn-block"
               id="submitBtn"
             >
               🚀 Processar Vídeo
             </button>
           </form>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-4">
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title">ℹ️ Informações</h3>
-        </div>
-        <div class="card-body">
-          <h5>🎯 O que será detectado:</h5>
-          <ul>
-            <li>🚑 Ambulâncias</li>
-            <li>🚓 Viaturas Policiais</li>
-            <li>🚒 Caminhões de Bombeiros</li>
-          </ul>
-
-          <h5>📊 Funcionalidades:</h5>
-          <ul>
-            <li>Detecção em tempo real</li>
-            <li>Identificação de sirenes ativas</li>
-            <li>Vídeo anotado com bounding boxes</li>
-            <li>Relatório detalhado das detecções</li>
-          </ul>
-
-          <div class="alert alert-warning">
-            <strong>⏱️ Tempo de Processamento:</strong><br />
-            O processamento pode levar alguns minutos dependendo do tamanho do
-            vídeo.
-          </div>
         </div>
       </div>
     </div>
@@ -109,10 +84,76 @@ Detecção de Veículos de Emergência{% endblock %} {% block content %}
 </div>
 
 <script>
-  document.getElementById("uploadForm").addEventListener("submit", function () {
-    const submitBtn = document.getElementById("submitBtn");
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = "⏳ Processando...";
-  });
-</script>
+	  const uploadForm = document.getElementById("uploadForm");
+	  const submitBtn = document.getElementById("submitBtn");
+	  const statusArea = document.createElement('div');
+	  statusArea.id = 'statusArea';
+	  statusArea.style.marginTop = '20px';
+	  document.querySelector('.card-body').appendChild(statusArea);
+	
+			  uploadForm.addEventListener("submit", function (e) {
+			    e.preventDefault();
+			    
+			    submitBtn.disabled = true;
+			    submitBtn.innerHTML = "⏳ Processando Vídeo...";
+			    
+			    const formData = new FormData(uploadForm);
+			    
+			    statusArea.innerHTML = `
+			        <div class="alert alert-info" id="uploadStatus">
+			            <h5>⏳ Upload em Andamento...</h5>
+			            <p>Por favor, aguarde. O upload e o processamento do vídeo podem levar alguns minutos.</p>
+			            <div class="progress mb-2">
+			                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+			            </div>
+			        </div>
+			    `;
+			    
+			    fetch(uploadForm.action, {
+			        method: 'POST',
+			        body: formData
+			    })
+			    .then(response => {
+			        if (response.redirected) {
+			            window.location.href = response.url;
+			            return;
+			        }
+			        return response.json().then(data => {
+			            if (!response.ok) {
+			                throw new Error(data.detail || data.error || 'Erro desconhecido no upload');
+			            }
+			            return data;
+			        });
+			    })
+			    .then(data => {
+			        if (data && data.job_id) {
+			            const jobId = data.job_id;
+			            
+			            statusArea.innerHTML = `
+			                <div class="alert alert-success">
+			                    <h5>✅ Vídeo Enviado!</h5>
+			                    <p>O processamento foi iniciado em background (ID do Job: <strong>${jobId}</strong>).</p>
+			                    <p>Acompanhe o status na <a href="{{ url_for('video_jobs_list') }}">lista de jobs</a>.</p>
+			                </div>
+			            `;
+			            submitBtn.disabled = false;
+			            submitBtn.innerHTML = "🚀 Processar Outro Vídeo";
+			            
+			        } else {
+			            throw new Error('Resposta da API inválida ou job_id ausente.');
+			        }
+			    })
+			    .catch(error => {
+			        console.error('Erro no upload:', error);
+			        statusArea.innerHTML = `
+			            <div class="alert alert-danger">
+			                <h5>❌ Erro no Upload</h5>
+			                <p>${error.message}</p>
+			            </div>
+			        `;
+			        submitBtn.disabled = false;
+			        submitBtn.innerHTML = "🚀 Processar Vídeo";
+			    });
+			  });
+		</script>
 {% endblock %}

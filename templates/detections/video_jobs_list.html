@@ -75,15 +75,9 @@
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ url_for('video_status', job_id=job.job_id) }}" 
-                                       class="btn btn-outline-primary">
-                                        🔍 Detalhes
-                                    </a>
-                                    {% if job.status == 'completed' and job.annotated_video_path %}
-                                    <a href="{{ url_for('get_annotated_video', job_id=job.job_id) }}" 
-                                       class="btn btn-outline-success" target="_blank">
-                                        📹 Vídeo
-                                    </a>
-                                    {% endif %}
+	                                       class="btn btn-outline-primary">
+	                                        🔍 Detalhes
+	                                    </a>
                                 </div>
                             </td>
                         </tr>

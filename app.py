@@ -5,7 +5,7 @@ Aplicação Flask para o Frontend do Sistema de Detecção de Veículos de Emerg
 from flask import (
     Flask, render_template, render_template_string,
     request, redirect, url_for, session, jsonify,
-    send_file
+    send_file, Response, stream_with_context
 )
 import requests
 import os
@@ -239,7 +239,7 @@ def detect_image():
             headers=headers, 
             files=files, 
             data=data,
-            timeout=API_TIMEOUT
+            timeout=120
         )
         
         if response.status_code == 200:
@@ -288,7 +288,7 @@ def get_annotated_image(detection_id):
 
 
 # =====================================================================
-# ROTAS DE DETECÇÃO DE VÍDEO - CORRIGIDAS
+# ROTAS DE DETECÇÃO DE VÍDEO
 # =====================================================================
 
 @app.route('/detections/video', methods=['GET', 'POST'])
@@ -324,12 +324,12 @@ def detect_video():
             headers=headers, 
             files=files, 
             data=data,
-            timeout=API_TIMEOUT
+            timeout=120
         )
         
         if response.status_code == 200:
             job_data = response.json()
-            return redirect(url_for('video_status', job_id=job_data['job_id']))
+            return jsonify({'job_id': job_data['job_id']}), 200
         else:
             error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
             error_detail = error_data.get('detail', f'Erro {response.status_code} ao processar vídeo')
@@ -343,9 +343,8 @@ def detect_video():
 @app.route('/detections/video/<job_id>')
 @login_required
 def video_status(job_id):
-    """Página de status do processamento de vídeo com polling automático"""
+    """Página de status do processamento de vídeo"""
     try:
-        # Buscar job usando api_call
         success, job_data, status_code = api_call('GET', f'/detections/video/{job_id}')
         
         if not success:
@@ -354,41 +353,13 @@ def video_status(job_id):
             else:
                 error_msg = job_data.get('detail', 'Erro desconhecido') if isinstance(job_data, dict) else str(job_data)
                 return render_template('error.html', error=f'Erro ao buscar job: {error_msg}'), 500
-        
-        # Buscar detalhes das detecções apenas se o job estiver completo
-        detections = []
-        detection_images = []
-        
-        if job_data.get('status') == 'completed':
-            # Buscar informações das detecções
-            if job_data.get('results'):
-                for detection_id in job_data['results']:
-                    success, detection, _ = api_call('GET', f'/detections/{detection_id}')
-                    if success:
-                        detections.append(detection)
-                        # Adicionar imagem da detecção à lista
-                        if detection.get('media_reference'):
-                            detection_images.append({
-                                'id': detection_id,
-                                'path': detection.get('media_reference'),
-                                'vehicle_type': detection.get('vehicle_type'),
-                                'confidence': detection.get('confidence_score'),
-                                'siren_on': detection.get('siren_on', False)
-                            })
-            
-            # Verificar se o vídeo anotado está realmente disponível
-            if job_data.get('annotated_video_path'):
-                # Testar se o arquivo existe
-                video_path = job_data.get('annotated_video_path')
-                if not os.path.exists(video_path):
-                    print(f"⚠️ Vídeo anotado não encontrado: {video_path}")
-                    job_data['annotated_video_path'] = None
-        
-        return render_template('detections/video_status.html', 
-                             job=job_data, 
-                             detections=detections,
-                             detection_images=detection_images)
-                             
+
+        if job_data.get('status') != 'completed':
+            return render_template('detections/video_status.html', 
+                                   job=job_data, 
+                                   not_ready_message="O vídeo ainda está sendo processado. Por favor, verifique a lista de jobs para acompanhar o status.")
+
+        return render_template('detections/video_status.html', job=job_data)                        
     except Exception as e:
         print(f"❌ Erro em video_status: {str(e)}")
         return render_template('error.html', error=f'Erro interno: {str(e)}'), 500
@@ -396,82 +367,57 @@ def video_status(job_id):
 @app.route('/detections/video/<job_id>/annotated')
 @login_required
 def get_annotated_video(job_id):
-    """Serve o vídeo anotado com as detecções - CORRIGIDO"""
+    """Serve o vídeo anotado com as detecções - PROXY STREAMING"""
     try:
-        # Primeiro verificar o status do job
-        success, job_data, status_code = api_call('GET', f'/detections/video/{job_id}')
-        
-        if not success:
-            return "Job não encontrado", 404
-        
-        # Verificar se o job está completo e tem vídeo anotado
-        if job_data.get('status') != 'completed':
-            return "Vídeo ainda não processado", 423  # 423 Locked
-            
-        annotated_video_path = job_data.get('annotated_video_path')
-        if not annotated_video_path:
-            return "Vídeo anotado não disponível", 404
-        
-        # Verificar se o arquivo existe localmente
-        if os.path.exists(annotated_video_path):
-            return send_file(
-                annotated_video_path,
-                mimetype='video/mp4',
-                as_attachment=False,
-                download_name=f"annotated_video_{job_id}.mp4"
-            )
-        else:
-            # Se não encontrar localmente, tentar via API
-            url = f"{API_BASE_URL}/detections/video/annotated/{job_id}"
-            headers = get_auth_header()
-            
-            response = requests.get(
-                url, 
-                headers=headers, 
-                timeout=API_TIMEOUT, 
-                stream=True
-            )
-            
-            if response.status_code == 200:
-                # Criar um arquivo temporário
-                temp_video = io.BytesIO()
-                for chunk in response.iter_content(chunk_size=8192):
-                    temp_video.write(chunk)
-                temp_video.seek(0)
-                
-                return send_file(
-                    temp_video,
-                    mimetype='video/mp4',
-                    as_attachment=False,
-                    download_name=f"annotated_video_{job_id}.mp4"
-                )
-            else:
-                return "Vídeo anotado não encontrado", 404
-                
+        url = f"{API_BASE_URL}/detections/video/annotated/{job_id}"
+        headers = get_auth_header()
+
+        backend_resp = requests.get(url, headers=headers, timeout=API_TIMEOUT, stream=True)
+
+        if backend_resp.status_code != 200:
+            return "Vídeo anotado não encontrado ou não processado", backend_resp.status_code
+
+        def generate():
+            for chunk in backend_resp.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+
+        response = Response(
+            stream_with_context(generate()),
+            mimetype='video/mp4',
+        )
+
+        content_length = backend_resp.headers.get('Content-Length')
+        if content_length:
+            response.headers['Content-Length'] = content_length
+
+        response.headers['Content-Disposition'] = f'inline; filename=annotated_video_{job_id}.mp4'
+        response.headers['Accept-Ranges'] = 'bytes'
+
+        return response
+
     except requests.exceptions.RequestException as e:
-        print(f"❌ Erro de requisição: {str(e)}")
-        return "Erro ao buscar vídeo", 500
+        print(f"❌ Erro de requisição ao proxy de vídeo: {str(e)}")
+        return "Erro ao buscar vídeo via API", 500
     except Exception as e:
-        print(f"❌ Erro em get_annotated_video: {str(e)}")
+        print(f"❌ Erro interno no proxy de vídeo: {str(e)}")
         return "Erro interno", 500
+
 
 @app.route('/detections/image/<detection_id>')
 @login_required
 def get_detection_image(detection_id):
     """Serve a imagem de uma detecção específica"""
-    # Primeiro buscar informações da detecção
     success, detection, _ = api_call('GET', f'/detections/{detection_id}')
     
     if not success or not detection.get('media_reference'):
         return "Imagem não encontrada", 404
     
-    # Tentar servir a imagem diretamente do sistema de arquivos
     image_path = detection.get('media_reference')
     
     if os.path.exists(image_path):
         return send_file(image_path, mimetype='image/jpeg')
     else:
-        # Se não encontrar no filesystem, tentar via API
         url = f"{API_BASE_URL}/detections/image/annotated/{detection_id}"
         headers = get_auth_header()
         
@@ -491,18 +437,11 @@ def get_detection_image(detection_id):
 @app.route('/api/detections/video/<job_id>/status')
 @login_required
 def api_video_status(job_id):
-    """API endpoint para verificar status do job - CORRIGIDO"""
+    """API endpoint para verificar status do job"""
     try:
         success, job_data, status_code = api_call('GET', f'/detections/video/{job_id}')
         
         if success:
-            # Se o job estiver completo, buscar detalhes adicionais
-            if job_data.get('status') == 'completed':
-                # Verificar se o vídeo anotado está realmente disponível
-                if job_data.get('annotated_video_path') and not os.path.exists(job_data.get('annotated_video_path')):
-                    job_data['annotated_video_path'] = None
-                    print(f"⚠️ Vídeo anotado não encontrado para job {job_id}")
-            
             return jsonify(job_data)
         else:
             return jsonify({'error': 'Job não encontrado'}), 404
@@ -528,24 +467,20 @@ def api_wait_video_completion(job_id):
         status = job_data.get('status')
         
         if status == 'completed':
-            # Job concluído com sucesso
             return jsonify({
                 'status': 'completed',
                 'job': job_data,
                 'message': 'Processamento concluído'
             })
         elif status == 'failed':
-            # Job falhou
             return jsonify({
                 'status': 'failed', 
                 'job': job_data,
                 'error': job_data.get('error_message', 'Erro desconhecido')
             }), 400
         
-        # Aguardar antes da próxima verificação
         time.sleep(check_interval)
     
-    # Timeout
     return jsonify({
         'status': 'timeout',
         'message': 'Tempo máximo de espera excedido'
@@ -555,60 +490,15 @@ def api_wait_video_completion(job_id):
 @login_required
 def video_jobs_list():
     """Lista todos os jobs de vídeo processados"""
-    # Buscar jobs do usuário atual
     success, jobs_data, status_code = api_call('GET', '/detections/jobs')
     
     jobs = []
     if success and isinstance(jobs_data, list):
         jobs = jobs_data
-    elif success and isinstance(jobs_data, dict):
-        jobs = jobs_data.get('items', [])
-    else:
-        # Se não conseguir buscar da API, usar dados mock para demonstração
-        print(f"⚠️ Não foi possível buscar jobs da API. Usando dados mock.")
-        jobs = get_mock_jobs()
     
-    # Ordenar por data de criação (mais recentes primeiro)
-    jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-    
-    return render_template('detections/video_jobs_list.html', jobs=jobs)
-
-def get_mock_jobs():
-    """Retorna dados mock para jobs quando a API não está disponível"""
-    return [
-        {
-            'job_id': 'job_001',
-            'original_filename': 'traffic_camera_1.mp4',
-            'status': 'completed',
-            'created_at': '2024-01-15T10:30:00',
-            'completed_at': '2024-01-15T10:35:00',
-            'results': ['detection_001', 'detection_002'],
-            'annotated_video_path': '/path/to/video_001.mp4',
-            'user_id': 'user_001'
-        },
-        {
-            'job_id': 'job_002', 
-            'original_filename': 'highway_footage.mp4',
-            'status': 'processing',
-            'created_at': '2024-01-15T11:00:00',
-            'completed_at': None,
-            'results': [],
-            'annotated_video_path': None,
-            'user_id': 'user_001'
-        },
-        {
-            'job_id': 'job_003',
-            'original_filename': 'urban_traffic.avi',
-            'status': 'failed',
-            'created_at': '2024-01-14T15:20:00',
-            'completed_at': '2024-01-14T15:25:00',
-            'results': [],
-            'annotated_video_path': None,
-            'error_message': 'Erro ao processar vídeo',
-            'user_id': 'user_001'
-        }
-    ]
-
+    message = request.args.get('message')
+        
+    return render_template('detections/video_jobs_list.html', jobs=jobs, message=message)
 
 # =====================================================================
 # ROTAS DE RELATÓRIOS
@@ -618,7 +508,6 @@ def get_mock_jobs():
 @login_required
 def reports_dashboard():
     """Dashboard principal de relatórios"""
-    # Buscar estatísticas básicas
     stats = {
         'total_detections': 0,
         'ambulance_count': 0,
@@ -626,12 +515,10 @@ def reports_dashboard():
         'fire_truck_count': 0
     }
     
-    # Tentar buscar estatísticas da API
     success, detections_data, _ = api_call('GET', '/detections')
     if success and isinstance(detections_data, list):
         stats['total_detections'] = len(detections_data)
         
-        # Contar por tipo de veículo
         for detection in detections_data:
             vehicle_type = detection.get('vehicle_type', '')
             if vehicle_type == 'ambulance':
@@ -657,14 +544,10 @@ def detections_report():
         if vehicle_type == 'all':
             vehicle_type = None
         
-        # Converter datas para formato datetime com timezone
         start_dt = datetime.fromisoformat(start_date) if start_date else datetime.now() - timedelta(days=7)
         end_dt = datetime.fromisoformat(end_date) if end_date else datetime.now()
-        
-        # Ajustar para incluir todo o dia final
         end_dt = end_dt.replace(hour=23, minute=59, second=59)
         
-        # Formatar datas no padrão ISO com timezone
         start_iso = start_dt.isoformat() + '+00:00'
         end_iso = end_dt.isoformat() + '+00:00'
         
@@ -702,14 +585,11 @@ def traffic_report():
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
         
-        # Converter datas para formato datetime com timezone
         start_dt = datetime.fromisoformat(start_date) if start_date else datetime.now() - timedelta(days=1)
         end_dt = datetime.fromisoformat(end_date) if end_date else datetime.now()
         
-        # Ajustar para incluir todo o dia final
         end_dt = end_dt.replace(hour=23, minute=59, second=59)
         
-        # Formatar datas no padrão ISO com timezone
         start_iso = start_dt.isoformat() + '+00:00'
         end_iso = end_dt.isoformat() + '+00:00'
         
@@ -742,18 +622,14 @@ def vehicle_activity_report():
         end_date = request.form.get('end_date')
         group_by = request.form.get('group_by', 'day')
         
-        # Converter datas para formato datetime com timezone
         start_dt = datetime.fromisoformat(start_date) if start_date else datetime.now() - timedelta(days=7)
         end_dt = datetime.fromisoformat(end_date) if end_date else datetime.now()
         
-        # Ajustar para incluir todo o dia final
         end_dt = end_dt.replace(hour=23, minute=59, second=59)
         
-        # Formatar datas no padrão ISO com timezone
         start_iso = start_dt.isoformat() + '+00:00'
         end_iso = end_dt.isoformat() + '+00:00'
         
-        # Chamar API para obter relatório
         params = {
             'start_date': start_iso,
             'end_date': end_iso,
@@ -824,18 +700,14 @@ def confidence_report():
         else:
             vehicle_type_param = vehicle_type
         
-        # Converter datas para formato datetime com timezone
         start_dt = datetime.fromisoformat(start_date) if start_date else datetime.now() - timedelta(days=7)
         end_dt = datetime.fromisoformat(end_date) if end_date else datetime.now()
         
-        # Ajustar para incluir todo o dia final
         end_dt = end_dt.replace(hour=23, minute=59, second=59)
         
-        # Formatar datas no padrão ISO com timezone
         start_iso = start_dt.isoformat() + '+00:00'
         end_iso = end_dt.isoformat() + '+00:00'
         
-        # Chamar API para obter relatório
         params = {
             'start_date': start_iso,
             'end_date': end_iso
