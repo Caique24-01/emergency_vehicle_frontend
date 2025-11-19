@@ -486,6 +486,17 @@ def api_wait_video_completion(job_id):
         'message': 'Tempo máximo de espera excedido'
     }), 408
 
+@app.route('/detections/images')
+@login_required
+def list_image_detections():
+    success, data, _ = api_call('GET', '/detections/images')
+    detections = data if success and isinstance(data, list) else []
+    
+    message = request.args.get('message')
+    
+    return render_template('detections/images_list.html', detections=detections, message=message)
+
+
 @app.route('/detections/video/jobs')
 @login_required
 def video_jobs_list():
@@ -497,7 +508,6 @@ def video_jobs_list():
         jobs = jobs_data
     
     message = request.args.get('message')
-        
     return render_template('detections/video_jobs_list.html', jobs=jobs, message=message)
 
 # =====================================================================

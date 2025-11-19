@@ -55,7 +55,6 @@ Detecção de Veículos de Emergência{% endblock %} {% block content %}
             <button
               type="submit" id="submitBtn"
               class="btn btn-primary btn-lg btn-block"
-              id="submitBtn"
             >
               🚀 Processar Vídeo
             </button>
@@ -91,69 +90,87 @@ Detecção de Veículos de Emergência{% endblock %} {% block content %}
 	  statusArea.style.marginTop = '20px';
 	  document.querySelector('.card-body').appendChild(statusArea);
 	
-			  uploadForm.addEventListener("submit", function (e) {
-			    e.preventDefault();
-			    
-			    submitBtn.disabled = true;
-			    submitBtn.innerHTML = "⏳ Processando Vídeo...";
-			    
-			    const formData = new FormData(uploadForm);
-			    
-			    statusArea.innerHTML = `
-			        <div class="alert alert-info" id="uploadStatus">
-			            <h5>⏳ Upload em Andamento...</h5>
-			            <p>Por favor, aguarde. O upload e o processamento do vídeo podem levar alguns minutos.</p>
-			            <div class="progress mb-2">
-			                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
-			            </div>
-			        </div>
-			    `;
-			    
-			    fetch(uploadForm.action, {
-			        method: 'POST',
-			        body: formData
-			    })
-			    .then(response => {
-			        if (response.redirected) {
-			            window.location.href = response.url;
-			            return;
-			        }
-			        return response.json().then(data => {
-			            if (!response.ok) {
-			                throw new Error(data.detail || data.error || 'Erro desconhecido no upload');
-			            }
-			            return data;
-			        });
-			    })
-			    .then(data => {
-			        if (data && data.job_id) {
-			            const jobId = data.job_id;
-			            
-			            statusArea.innerHTML = `
-			                <div class="alert alert-success">
-			                    <h5>✅ Vídeo Enviado!</h5>
-			                    <p>O processamento foi iniciado em background (ID do Job: <strong>${jobId}</strong>).</p>
-			                    <p>Acompanhe o status na <a href="{{ url_for('video_jobs_list') }}">lista de jobs</a>.</p>
-			                </div>
-			            `;
-			            submitBtn.disabled = false;
-			            submitBtn.innerHTML = "🚀 Processar Outro Vídeo";
-			            
-			        } else {
-			            throw new Error('Resposta da API inválida ou job_id ausente.');
-			        }
-			    })
-			    .catch(error => {
-			        console.error('Erro no upload:', error);
-			        statusArea.innerHTML = `
-			            <div class="alert alert-danger">
-			                <h5>❌ Erro no Upload</h5>
-			                <p>${error.message}</p>
-			            </div>
-			        `;
-			        submitBtn.disabled = false;
-			        submitBtn.innerHTML = "🚀 Processar Vídeo";
-			    });
-			  });
-		</script>
+	  uploadForm.addEventListener("submit", function (e) {
+	    e.preventDefault();
+	    
+	    submitBtn.disabled = true;
+	    submitBtn.innerHTML = "⏳ Processando Vídeo...";
+	    
+	    const formData = new FormData(uploadForm);
+	    
+	    // 1. Exibir "Upload em Andamento..." imediatamente
+	    statusArea.innerHTML = `
+	        <div class="alert alert-info" id="uploadStatus">
+	            <h5>⏳ Upload em Andamento...</h5>
+	            <p>Por favor, aguarde. O upload e o processamento do vídeo podem levar alguns minutos.</p>
+	            <div class="progress mb-2">
+	                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+	            </div>
+	        </div>
+	    `;
+	    
+	    // 2. Iniciar o upload
+	    const uploadPromise = fetch(uploadForm.action, {
+	        method: 'POST',
+	        body: formData
+	    })
+	    .then(response => {
+	        if (response.redirected) {
+	            window.location.href = response.url;
+	            // Retorna um objeto que não será processado pelos .then() seguintes
+	            return { redirected: true }; 
+	        }
+	        return response.json().then(data => {
+	            if (!response.ok) {
+	                throw new Error(data.detail || data.error || 'Erro desconhecido no upload');
+	            }
+	            return data;
+	        });
+	    });
+	    
+	    // 3. Criar um delay de 50 segundos
+	    const delayPromise = new Promise(resolve => {
+	        setTimeout(() => {
+	            resolve();
+	        }, 50000); // 50 segundos
+	    });
+	    
+	    // 4. Esperar o upload E o delay terminarem
+	    Promise.all([uploadPromise, delayPromise])
+	    .then(([data, _]) => {
+	        // Se houve redirecionamento, a execução já foi interrompida acima
+	        if (data && data.redirected) return; 
+
+	        if (data && data.job_id) {
+	            const jobId = data.job_id;
+	            
+	            // 5. Exibir "Vídeo Enviado!"
+	            statusArea.innerHTML = `
+	                <div class="alert alert-success">
+	                    <h5>✅ Vídeo Enviado!</h5>
+	                    <p>O processamento foi iniciado em background (ID do Job: <strong>${jobId}</strong>).</p>
+	                    <p>Acompanhe o status na <a href="{{ url_for('video_jobs_list') }}">lista de jobs</a>.</p>
+	                </div>
+	            `;
+	            submitBtn.disabled = false;
+	            submitBtn.innerHTML = "🚀 Processar Outro Vídeo";
+	            
+	        } else {
+	            throw new Error('Resposta da API inválida ou job_id ausente.');
+	        }
+	    })
+	    .catch(error => {
+	        // O erro pode vir do upload ou de uma falha no processamento do JSON
+	        console.error('Erro no upload:', error);
+	        statusArea.innerHTML = `
+	            <div class="alert alert-danger">
+	                <h5>❌ Erro no Upload</h5>
+	                <p>${error.message}</p>
+	            </div>
+	        `;
+	        submitBtn.disabled = false;
+	        submitBtn.innerHTML = "🚀 Processar Vídeo";
+	    });
+	  });
+</script>
 {% endblock %}

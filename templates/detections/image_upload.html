@@ -10,10 +10,12 @@
         <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
     
-    <div class="card" style="max-width: 600px; margin: 2rem auto;">
-        <div class="card-header">
-            <h3 class="card-title">Upload de Imagem</h3>
-        </div>
+	    <div class="row">
+	        <div class="col-md-8">
+	            <div class="card">
+	        <div class="card-header">
+	            <h3 class="card-title">Upload de Imagem</h3>
+	        </div>
         <div class="card-body">
             <form method="POST" enctype="multipart/form-data" id="uploadForm">
                 <div class="form-group">
@@ -47,12 +49,32 @@
                     </div>
                     <p>Processando imagem, aguarde...</p>
                 </div>
-            </form>
-        </div>
-    </div>
+	            </form>
+	        </div>
+	    </div>
+	</div>
+	<div class="col-md-4">
+	    <div class="card mt-4">
+	        <div class="card-header">
+	            <h3 class="card-title">Imagens Detectadas</h3>
+	        </div>
+	        <div class="card-body">
+	            <p class="text-muted">
+	                Acompanhe todas as suas imagens processadas em uma única página.
+	            </p>
+	            <a href="{{ url_for('list_image_detections') }}" class="btn btn-outline-primary">
+	                📋 Ver Todas as Imagens Detectadas
+	            </a>
+	            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+	                📊 Ver Relatórios Completos
+	            </a>
+	        </div>
+	    </div>
+	</div>
+	</div>
 </div>
 
-<script>
+	<script>
 function previewImage(input) {
     const preview = document.getElementById('preview');
     const imagePreview = document.getElementById('imagePreview');
@@ -78,9 +100,9 @@ document.getElementById('uploadForm').addEventListener('submit', function() {
 </script>
 
 <style>
-.spinner-border {
-    width: 2rem;
-    height: 2rem;
-}
-</style>
-{% endblock %}
+	.spinner-border {
+	    width: 2rem;
+	    height: 2rem;
+	}
+	</style>
+	{% endblock %}

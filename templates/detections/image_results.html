@@ -104,69 +104,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        
-                        <!-- Estatísticas resumidas -->
-                        <div class="mt-4">
-                            <h6>Resumo da Detecção:</h6>
-                            <ul class="list-unstyled">
-                                <li>• Total de veículos: <strong>{{ detections|length }}</strong></li>
-                                <li>• Confiança média: <strong>
-                                    {% set total_confidence = 0 %}
-                                    {% for detection in detections %}
-                                        {% set total_confidence = total_confidence + (detection.confidence_score | float) %}
-                                    {% endfor %}
-                                    {% if detections|length > 0 %}
-                                        {{ "%.1f"|format((total_confidence / detections|length) * 100) }}%
-                                    {% else %}
-                                        0%
-                                    {% endif %}
-                                </strong></li>
-                                <li>• Veículos com sirene ativa: <strong>{{ detections|selectattr('siren_on')|list|length }}</strong></li>
-                            </ul>
-                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5 class="card-title">Informações Técnicas</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for detection in detections %}
-                    <div class="col-md-6 mb-3">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6>Detecção #{{ loop.index }}</h6>
-                                <ul class="list-unstyled small">
-                                    <li><strong>ID:</strong> {{ detection._id }}</li>
-                                    <li><strong>Tipo:</strong> {{ detection.vehicle_type }}</li>
-                                    <li><strong>Confiança:</strong> {{ "%.4f"|format(detection.confidence_score | float) }}</li>
-                                    <li><strong>BBox:</strong> 
-                                        {% if detection.bounding_box %}
-                                            {% if detection.bounding_box is mapping %}
-                                                {# Formato de dicionário #}
-                                                [{{ "%.2f"|format(detection.bounding_box.get('x1', 0) | float) }}, 
-                                                 {{ "%.2f"|format(detection.bounding_box.get('y1', 0) | float) }}, 
-                                                 {{ "%.2f"|format(detection.bounding_box.get('x2', 0) | float) }}, 
-                                                 {{ "%.2f"|format(detection.bounding_box.get('y2', 0) | float) }}]
-                                            {% else %}
-                                                {# Formato de lista ou tupla #}
-                                                {{ detection.bounding_box }}
-                                            {% endif %}
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </li>
-                                    <li><strong>Processado em:</strong> {{ detection.processed_at }}</li>
-                                    <li><strong>Fonte:</strong> {{ detection.source_id }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
                 </div>
             </div>
         </div>

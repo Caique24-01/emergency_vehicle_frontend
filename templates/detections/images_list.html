@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Imagens Detectadas - Sistema de Detecção de Veículos de Emergência{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Imagens Detectadas</h1>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{{ url_for('detect_image') }}" class="btn btn-primary">
+            Processar Nova Imagem
+        </a>
+        <span class="text-muted">{{ detections|length }} detecção(ões) registrada(s)</span>
+    </div>
+
+    {% if not detections %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <h3>Nenhuma detecção de imagem registrada</h3>
+            <p class="text-muted">Comece processando sua primeira imagem para ver os resultados aqui.</p>
+            <a href="{{ url_for('detect_image') }}" class="btn btn-primary">
+                Processar Primeira Imagem
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID da Detecção</th>
+                            <th>Tipo de Veículo</th>
+                            <th>Confiança</th>
+                            <th>Processado em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detection in detections %}
+                        <tr>
+                            <td>
+                                <strong>{{ detection._id[:8] }}...</strong>
+                                <br>
+                                <small class="text-muted">Fonte: {{ detection.source_id }}</small>
+                            </td>
+                            <td>
+                                <span class="badge badge-primary">{{ detection.vehicle_type|replace('_', ' ')|title }}</span>
+                                <br>
+                                {% if detection.siren_on %}
+                                    <span class="badge badge-danger">🚨 Sirene Ligada</span>
+                                {% else %}
+                                    <span class="badge badge-success">🔇 Sirene Desligada</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ "%.2f"|format(detection.confidence_score * 100) }}%
+                            </td>
+                            <td>
+                                <small>{{ detection.processed_at[:16] }}</small>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('get_annotated_image', detection_id=detection._id) }}" 
+                                       class="btn btn-outline-success" target="_blank">
+                                        Visualizar Imagem
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">📊 Estatísticas</h3>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                
+                    <div class="stat-card">
+                        <h3>{{ detections|length }}</h3>
+                        <p class="text-muted">Total de Detecções</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h3 class="text-success">{{ detections|selectattr('siren_on', 'equalto', True)|list|length }}</h3>
+                        <p class="text-muted">Com Sirene Ligada</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h3 class="text-danger">{{ detections|selectattr('siren_on', 'equalto', False)|list|length }}</h3>
+                        <p class="text-muted">Com Sirene Desligada</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+
+.stat-card h3 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.stat-card p {
+    margin: 0.5rem 0 0 0;
+}
+</style>
+{% endblock %}
